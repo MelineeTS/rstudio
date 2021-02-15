@@ -28,8 +28,18 @@ ENV JAVA_HOME "/usr/lib/jvm/adoptopenjdk-8-hotspot-amd64"
 ENV HADOOP_OPTIONAL_TOOLS "hadoop-aws"
 ENV PATH="${JAVA_HOME}/bin:${SPARK_HOME}/bin:${HADOOP_HOME}/bin:${PATH}"
 
-ENV \
+# Installing mc
 
+RUN wget https://dl.min.io/client/mc/release/linux-amd64/mc -O /usr/local/bin/mc && \
+    chmod +x /usr/local/bin/mc
+    
+# Installing kubectl
+RUN curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl && \
+    chmod +x ./kubectl && \
+    mv ./kubectl /usr/local/bin/kubectl
+    
+    
+ENV \
     # Change the locale
     LANG=fr_FR.UTF-8 
 
@@ -50,20 +60,25 @@ RUN \
         gnupg2 \
         unixodbc \
         unixodbc-dev \
-	odbc-postgresql \
-	libsqliteodbc \
-	alien \
+        odbc-postgresql \
+        libsqliteodbc \
+        alien \
         libsodium-dev \
         libsecret-1-dev \
         libarchive-dev \
-        libglpk-dev \        
+        libglpk-dev \
+        chromium \
+        ghostscript \
+        fontconfig \
+        fonts-symbola \
+        fonts-noto \
+        fonts-freefont-ttf \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* \
     && wget -qO - https://adoptopenjdk.jfrog.io/adoptopenjdk/api/gpg/key/public | apt-key add - \
     && add-apt-repository --yes https://adoptopenjdk.jfrog.io/adoptopenjdk/deb/ \
     && sudo apt update -y \
     && apt install -y adoptopenjdk-8-hotspot \
-
     # Handle localization
     && cp /usr/share/zoneinfo/Europe/Paris /etc/localtime \
     && sed -i -e 's/# fr_FR.UTF-8 UTF-8/fr_FR.UTF-8 UTF-8/' /etc/locale.gen \
@@ -72,7 +87,6 @@ RUN \
 
 
 RUN \
-    
     R -e "update.packages(ask = 'no')" \
     && install2.r --error \
         RPostgreSQL \
@@ -81,10 +95,17 @@ RUN \
         keyring \
         aws.s3 \
         Rglpk \
-	paws \
+        paws \
         SparkR \
-	vaultr \
-    && R -e "remotes::install_github('inseeFrLab/doremifasol')"
-    
+        vaultr \
+    && installGithub.r \
+        inseeFrLab/doremifasol \
+        `# pkgs for PROPRE reproducible publications:` \
+        rstudio/pagedown \
+        spyrales/gouvdown \
+        spyrales/gouvdown.fonts \
+    && find /usr/local/lib/R/site-library/gouvdown.fonts -name "*.ttf" -exec cp '{}' /usr/local/share/fonts \; \
+    && fc-cache \
+    && Rscript -e "gouvdown::check_fonts_in_r()"
     
 VOLUME ["/home"]
